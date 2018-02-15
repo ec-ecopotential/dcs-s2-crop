@@ -11,7 +11,7 @@
       </defaultJobconf>
     </jobTemplate>
   </jobTemplates>
-  <workflow id="dcs-s2-crop" title="Notebook driven application" abstract="Notebook driven application">
+  <workflow id="dcs-s2-crop" title="Sentinel-2 crop and conversion to GeoTIFF" abstract="Sentinel-2 crop and conversion to GeoTIFF">
     <workflowVersion>1.0</workflowVersion>
     <node id="notebook">
       <job id="notebook"/>
