@@ -19,6 +19,9 @@ certifi=2017.7.27.1=py27_0
 cffi=1.9.1=py27_0
 chardet=3.0.4=py27hfa10054_1
 cioppy=0.2.4=py27h8e77063_0
+click=6.7=py27h4225b90_0
+click-plugins=1.0.3=py27_0
+cligj=0.4.0=py27_0
 conda=4.4.6=py27_0
 conda-build=3.2.0=py27_0
 conda-env=2.6.0=h36134e3_1
@@ -30,16 +33,20 @@ curl=7.49.0=1
 cycler=0.10.0=py27_0
 dbus=1.10.10=0
 decorator=4.0.11=py27_0
+descartes=1.1.0=py27_0
 docutils=0.14=py27hae222c1_0
+ellip_triggers=0.0.1=py27_0
 entrypoints=0.2.2=py27_0
 enum34=1.1.6=py27_0
 expat=2.1.0=0
 filelock=2.0.13=py27h61a9c69_0
+fiona=1.7.11=py27_3
 fontconfig=2.12.1=2
 freetype=2.5.5=2
 functools32=3.2.3.2=py27_0
 futures=3.1.1=py27hdbc8cbb_0
 gdal=2.2.2=py27h3e23360_2
+geopandas=0.3.0=py27_0
 geos=3.5.0=0
 get_terminal_size=1.0.0=py27_0
 glib=2.50.2=1
@@ -82,7 +89,9 @@ libgfortran-ng=7.2.0=h9f7466a_2
 libiconv=1.14=0
 libnetcdf=4.4.1=0
 libpng=1.6.32=hbd3595f_4
+libpq=9.5.4=0
 libsodium=1.0.10=0
+libspatialindex=1.8.5=1
 libstdcxx-ng=7.2.0=h7a57d05_2
 libtiff=4.0.6=2
 libxcb=1.12=1
@@ -94,6 +103,7 @@ matplotlib=2.0.2=np113py27_0
 mccabe=0.6.1=py27h0e7c7be_1
 mistune=0.7.3=py27_0
 mkl=2018.0.1=h19d6760_4
+munch=2.2.0=py27_0
 nbconvert=5.3.1=py27he041f76_0
 nbformat=4.2.0=py27_0
 ncurses=5.9=10
@@ -121,6 +131,7 @@ pkginfo=1.4.1=py27hee1a9ad_1
 plotly=2.1.0=py27h77e25ac_0
 proj4=4.9.3=hc8507d1_7
 prompt_toolkit=1.0.9=py27_0
+psycopg2=2.7.3.1=py27h1368252_0
 ptyprocess=0.5.1=py27_0
 py=1.4.31=py27_0
 pyasn1=0.1.9=py27_0
@@ -134,6 +145,7 @@ pyopenssl=16.2.0=py27_0
 pyparsing=2.1.4=py27_0
 pyproj=1.9.5.1=py27_0
 pyqt=5.6.0=py27_2
+pysal=1.14.2=py27heb65aa2_1
 pytest=2.9.2=py27_0
 python=2.7.12=1
 python-dateutil=2.2=py27_0
@@ -261,10 +273,12 @@ r-yaml=2.1.14=r3.3.2_0
 r-zoo=1.7_13=r3.3.2_0
 readline=6.2=2
 requests=2.12.4=py27_0
+rtree=0.8.3=py27_0
 ruamel_yaml=0.11.14=py27_0
 scandir=1.4=py27_0
 scipy=1.0.0=py27hf5f0f52_0
 setuptools=23.0.0=py27_0
+shapely=1.5.16=py27_0
 simplegeneric=0.8.1=py27_1
 singledispatch=3.4.0.3=py27_0
 sip=4.18=py27_0
@@ -277,6 +291,7 @@ sphinx_rtd_theme=0.2.4=py27_0
 sphinxcontrib=1.0=py27h1512b58_1
 sphinxcontrib-plantuml=0.8.2=py27hbff4568_0
 sphinxcontrib-websupport=1.0.1=py27hf906f22_1
+sqlalchemy=1.2.4=py27h14c3975_0
 sqlite=3.13.0=0
 ssl_match_hostname=3.4.0.2=py27_1
 subprocess32=3.2.7=py27_0
