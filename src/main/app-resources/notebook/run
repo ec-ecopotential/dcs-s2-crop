@@ -42,7 +42,8 @@ def parametrize(identifier, reference):
         
     wkt = ciop.getparam('wkt')
    
-    nb.cells[1]['source'] = 'wkt = "%s"' % (wkt)  
+    nb.cells[1]['source'] = 'wkt = "%s"' % ciop.getparam('wkt')  
+    nb.cells[2]['source'] = 'pa = "%s"' % ciop.getparam('pa')
     nb.cells[3]['source'] = 'data_path = "%s"' % ( tmp_dir )
     nb.cells[4]['source'] = 's2_identifier = "%s"' % ( identifier )
  
