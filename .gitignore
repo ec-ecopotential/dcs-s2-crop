@@ -8,3 +8,5 @@ runc
 *.lut
 *.tif
 *.png
+*.properties
+S2*B*.xml
