@@ -39,14 +39,14 @@ def clean_exit(exit_code):
 def parametrize(identifier, reference):
 
     global nb
-        
-    wkt = ciop.getparam('wkt')
-   
+
     nb.cells[1]['source'] = 'wkt = "%s"' % ciop.getparam('wkt')  
-    nb.cells[2]['source'] = 'pa = "%s"' % ciop.getparam('pa')
-    nb.cells[3]['source'] = 'data_path = "%s"' % ( tmp_dir )
-    nb.cells[4]['source'] = 's2_identifier = "%s"' % ( identifier )
- 
+    nb.cells[2]['source'] = 'pa_code = "%s"' % ciop.getparam('pa_code')
+    nb.cells[3]['source'] = 'pa_name = "%s"' % ciop.getparam('pa_name')
+    nb.cells[4]['source'] = 'data_path = "%s"' % tmp_dir
+    nb.cells[5]['source'] = 's2_identifier = "%s"' % identifier
+    nb.cells[6]['source'] = 's2_reference = "%s"' % reference
+
 def reproducibility(path, reference):
     
     ciop.log('INFO', 'Create stage-in notebook for reproducibility')
