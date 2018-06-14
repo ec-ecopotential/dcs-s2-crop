@@ -47,7 +47,7 @@
                   <goal>exec</goal>
                 </goals>
                 <configuration>
-                  <executable>app_descriptor_generator</executable>
+                  <executable>/opt/anaconda/bin/app_descriptor_generator</executable>
                   <arguments>
                     <argument>${basedir}/src/main/app-resources/application_template.xml</argument>
                     <argument>${basedir}/src/main/app-resources/application.xml</argument>
