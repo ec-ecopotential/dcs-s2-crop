@@ -10,14 +10,27 @@ import atexit
 from nbconvert.preprocessors import ExecutePreprocessor, CellExecutionError
 import nbformat as nbf
 import uuid
+import re
+import lxml.etree as etree
+import requests
 
 sys.path.append('/opt/anaconda/bin/')
 import cioppy
 ciop = cioppy.Cioppy()
 
+import StringIO
+import configparser
+import pysftp
+import traceback
+import ast
+
+
 # define the exit codes
 SUCCESS = 0
-ERR_NB_RUNTIME=10
+ERR_NB_RUNTIME = 10
+ERR_GET_CAT = 20
+ERR_IMPORT_CAT = 30
+RUNTIME_ERR = 40
 
 references = []
 identifiers = []
@@ -31,22 +44,75 @@ def clean_exit(exit_code):
         log_level = 'ERROR'  
    
     msg = {SUCCESS: 'Processing successfully concluded',
-           ERR_NB_RUNTIME: 'Failed to run notebook'
+           ERR_NB_RUNTIME: 'Failed to run notebook',
+           ERR_GET_CAT: 'Error in catalog get',
+           ERR_IMPORT_CAT: 'Error in catalog import',
+           RUNTIME_ERR: 'Processing failed'
     }
  
     ciop.log(log_level, msg[exit_code])  
     
 def parametrize(identifier, reference):
-
+    
     global nb
+    
+    for index, cell in enumerate(nb['cells']):
+       
+        if str(cell['cell_type']) == 'code': 
+        
+            try:
+                root_ast = ast.parse(str(cell['source']))
+                names = list({node.id for node in ast.walk(root_ast) if isinstance(node, ast.Name)})
+                
+                if len(names) == 1:
+                    
+                    if names[0] == 'data_path':
+                        ciop.log('INFO', 'cell %s updated with \'data_path\' value %s' % (index, tmp_dir))
+                        cell['source'] = 'data_path = \'%s\'' % tmp_dir  
+        
+                    if names[0] == 'input_identifier':
+                        ciop.log('INFO', 'cell %s updated with \'input_identifier\' value %s' % (index, identifier))
+                        cell['source'] = 'input_identifier = \'%s\'' % identifier  
+                
+                    if names[0] == 'input_reference':
+                        ciop.log('INFO', 'cell %s updated with \'input_reference\' value %s' % (index, reference))
+                        cell['source'] = 'input_reference = \'%s\'' % reference  
+                
+                if len(names) != 2:
+                    continue
+                
+                if names[0] == 'dict' or names[1] == 'dict':
+                    
+                    # deal with the alphabetical order
+                    if names[1] == 'dict': 
+                        names[1] = names[0]
+                        names[0] = 'dict'
+                
+                    exec(str(cell['source'])) in globals(), locals()
+                
+                    if names[0] == 'dict' and 'title' in eval(names[1]).keys() and 'abstract' in eval(names[1]).keys() and 'id' in eval(names[1]).keys() and 'value' in eval(names[1]).keys():
+                                      
+                        eval(names[1])['value'] = ciop.getparam(eval(names[1])['id'])
+    
+                        new_source = 'dict(['
 
-    nb.cells[1]['source'] = 'wkt = "%s"' % ciop.getparam('wkt')  
-    nb.cells[2]['source'] = 'pa_code = "%s"' % ciop.getparam('pa_code')
-    nb.cells[3]['source'] = 'pa_name = "%s"' % ciop.getparam('pa_name')
-    nb.cells[4]['source'] = 'data_path = "%s"' % tmp_dir
-    nb.cells[5]['source'] = 's2_identifier = "%s"' % identifier
-    nb.cells[6]['source'] = 's2_reference = "%s"' % reference
-
+                        for i, keys in enumerate(eval(names[1])):
+                            if i == 0: 
+                                new_source = new_source + '( "%s", "%s")' % (keys, eval(names[1])[keys]) 
+                            else:
+                                new_source = new_source + ',( "%s", "%s")' % (keys, eval(names[1])[keys]) 
+        
+                        new_source = new_source + '])'
+    
+                        cell['source'] = '%s = %s' % (names[1], new_source)
+         
+                        ciop.log('INFO', 'cell %s %s updated' % (index, names[1]))
+                    
+            except SyntaxError:
+                continue
+        
+        
+        
 def reproducibility(path, reference):
     
     ciop.log('INFO', 'Create stage-in notebook for reproducibility')
@@ -75,7 +141,7 @@ ciop = cioppy.Cioppy()"""))
     nb_stagein['cells'] = code
     fname = os.path.join(path, 'stage-in.ipynb')
     with open(fname, 'w') as f:
-      nbf.write(nb_stagein, f)
+        nbf.write(nb_stagein, f)
     
     #ciop.publish('stage-in.ipynb', metalink=True)
     
@@ -86,15 +152,14 @@ def stage_in(reference):
     search = ciop.search(end_point = reference, params = [], output_fields='enclosure,identifier', model='GeoTime')
     assert(search), sys.exit(ERR_RESOLUTION)
   
-    ciop.log('INFO', 'Retrieve %s from %s' % (search[0]['identifier'], search[0]['enclosure']))
+    ciop.log('INFO', 'Retrieving %s from %s' % (search[0]['identifier'], search[0]['enclosure']))
     retrieved = ciop.copy(search[0]['enclosure'], tmp_dir)
     assert(retrieved), sys.exit(ERR_STAGEIN)
 
     identifiers.append(search[0]['identifier'])
     enclosures.append(search[0]['enclosure'])
     local_files.append(retrieved)    
-  
-
+    
 def execute(identifier, reference, nb_source, nb_target, kernel = 'python2'):
     
     global nb
@@ -109,79 +174,279 @@ def execute(identifier, reference, nb_source, nb_target, kernel = 'python2'):
     ep = ExecutePreprocessor(timeout=None, kernel_name=kernel)
 
     try:
-      out = ep.preprocess(nb, {'metadata': {'path': './'}})
+        out = ep.preprocess(nb, {'metadata': {'path': './'}})
     except CellExecutionError:
-      out = None
-      ciop.log('ERROR', 'Error executing the notebook "%s".' % nb_source)
+        out = None
+        ciop.log('ERROR', 'Error executing the notebook "%s".' % nb_source)
 
-      with io.open(nb_target, 'wb') as file:
-        file.write(nbf.writes(nb))
-        file.close()
+        with io.open(nb_target, 'wb') as file:
+            file.write(nbf.writes(nb))
+            file.close()
       
-      ciop.publish(nb_target, metalink=True)
-      raise
+        ciop.publish(nb_target, metalink=True)
+        raise
     finally:
-      ciop.log('INFO', 'Write notebook')  
-      with io.open(nb_target, 'wb') as file:
-        file.write(nbf.writes(nb))
-        file.close() 
+        ciop.log('INFO', 'Write notebook')  
+        with io.open(nb_target, 'wb') as file:
+            file.write(nbf.writes(nb))
+            file.close() 
 
 def publish(runtime):
    
     # publish
     ciop.log('INFO', 'Publishing ') 
-    ciop.publish(runtime, metalink=True, recursive=True) 
+    ciop.publish(runtime, metalink=True, recursive=True)
+    
+    
+def sftp_upload(products_path, hostname, user, passwd, target_dir):
 
+    print 'INFO', 'Connecting to %s to publish %s' % (hostname, products_path)
+
+    try:
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys = None
+        with pysftp.Connection(hostname, username=user, password=passwd, cnopts=cnopts) as sftp:
+            sftp.makedirs(target_dir)
+            sftp.chdir(target_dir)
+            for data in products_path:
+                sftp.put(data, preserve_mtime=True)
+    except IOError as e:
+        print 'ERROR', 'Unexpected error: %s' % e
+        print 'ERROR', ''.join(traceback.format_stack())
+        return False
+    except Exception as e:
+        print 'ERROR', 'Unexpected error: %s' % e
+        print 'ERROR', ''.join(traceback.format_stack())
+        return False
+    return True    
+
+
+def post_request(endpoint, data, auth, headers={}):
+    return requests.post(endpoint ,
+                         data=data,
+                         headers=headers,
+                         auth=auth)
+
+
+def update_atom(atom, hostname, remote_path, product):
+                     
+    my_target_enclosure = 'sftp://%s/%s/%s' %(hostname, remote_path, product)
+    
+    new_identifier = os.path.splitext(product)[0]
+    
+    root = etree.fromstring(atom)
+    
+    enclosure_elem = root.xpath('/a:feed/a:entry/a:link[@title="Download via Data Gateway"]', 
+                             namespaces={'a':'http://www.w3.org/2005/Atom'})
+    eop_id_elem = root.xpath('/a:feed/a:entry/o:EarthObservation/e:metaDataProperty/e:EarthObservationMetaData/e:identifier', 
+                             namespaces={'a':'http://www.w3.org/2005/Atom',
+                                         'e':'http://www.opengis.net/eop/2.1',
+                                         'o':'http://www.opengis.net/opt/2.1'})
+
+    id_elem = root.xpath('/a:feed/a:entry/d:identifier', 
+                         namespaces={'a':'http://www.w3.org/2005/Atom',
+                                     'd':'http://purl.org/dc/elements/1.1/'})
+
+    enclosure_elem[0].attrib['title'] =  'Download via %s server' %hostname
+    enclosure_elem[0].attrib['href'] =  my_target_enclosure
+    
+    eop_id_elem[0].text = new_identifier
+   
+    id_elem[0].text = new_identifier
+
+    ciop.log('INFO','ATOM UPDATED')
+    
+    return etree.tostring(root, pretty_print=True)
+    
+    
+def catalog_publish(reference, product, index, hostname, remote_path, username, api_key):
+    
+    exit_v = 0   
+    new_identifier = os.path.splitext(product)[0]
+    try:
+        atom = ciop.search(reference, params = [], output_fields='{}', model='EOP')
+    except Exception as e:
+        ciop.log('ERROR', 'An error occurred while retrieving atom for %s' %reference)
+        raise SystemExit(ERR_GET_CAT)
+                     
+    new_atom = update_atom(atom, hostname, remote_path, product)
+                     
+    endpoint = 'https://catalog.terradue.com/%s' % index
+
+    headers = {"Content-Type": "application/atom+xml", "Accept": "application/xml"}
+                
+    try:
+        request_track = post_request(endpoint ,
+                                     new_atom,
+                                     (username, api_key),
+                                     headers)
+    except Exception,e:
+        ciop.log('ERROR', 'An error occured while registering %s in the index %s: \n %s' % (new_identifier,index,e))
+        exit_v = 1
+
+    if request_track.status_code != 200:
+        ciop.log('WARN', 'Atom registration for %s FAILED (%s)' % (new_identifier,request_track.status_code))
+        exit_v = 1
+    
+    return exit_v
+
+    
+def ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path, index, username, api_key):
+
+    exit_value = 0
+    regexp = 'S2._MSI..._([0-9]{4})([0-9]{2})([0-9]{2})T(.*)_PA_(.*)_(.*)$'
+    
+    zip_files = filter(lambda x: x.endswith('.zip'), os.listdir(runtime))
+    
+    if len(zip_files) == 0:
+        return 1
+
+    product = zip_files[0]
+
+    m = re.search('(S2.*)_PA_.*$', product)
+    
+    assert m.groups()[0] == reference.split('=')[2], 'ERROR on data selection: %s != %s' %(m.groups()[0],reference.split('=')[2])
+        
+    m = re.search(regexp, product)
+    date_path = '%s/%02d/%02d' % (m.groups()[0], int(m.groups()[1]), int(m.groups()[2]))
+    pa_name = m.groups()[4]
+    
+    ftp_index = reference.split('/')[3]
+    
+
+    middle_path = '%s/%s/EO_Data/%s/Raw/'%(base_path, pa_name, ftp_index.capitalize())
+        
+    #remote_path = os.path.join(middle_path, os.path.join('test-t2',date_path))
+    remote_path = os.path.join(middle_path, date_path)
+
+    ciop.log('DEBUG','remote_path: %s' %remote_path)
+    
+    zip_path = os.path.join(runtime, product)
+        
+    xml_file = '%s.xml' %os.path.splitext(product)[0]
+    xml_path = os.path.join(runtime, xml_file)
+        
+    files = [xml_path, zip_path]
+    ciop.log('DEBUG','files: %s' %files)
+        
+    if sftp_upload(files, ftp_server, ftp_user, ftp_passwd, remote_path):
+        ciop.log('INFO','%s and %s uploaded' % (zip_path, xml_file))       
+        out = catalog_publish(reference, product, index, ftp_server, remote_path, username, api_key)
+        if (out == 1):
+            ciop.log('ERROR','catalog publishing : FAILED')
+            exit_value = 1
+        else:
+            ciop.log('INFO','catalog publishing : DONE')
+    else:
+        ciop.log('ERROR','%s NOT published' % zip_path)
+        exit_value = 1
+                    
+    return exit_value
+                     
 def clean_up(runtime):
            
     # clean-up 
     shutil.rmtree(runtime)
     # delete last retrieved file
     shutil.rmtree(local_files[-1])
-        
+
+
+    
 def main():
 
     # create the folder for the data stage-in
     global tmp_dir
     tmp_dir = os.path.join('/tmp', 'workspace-' + str(uuid.uuid4()), 'data') 
     os.makedirs(tmp_dir)
+    start = ciop.getparam('start')
+    stop = ciop.getparam('stop')
+    cat_index = ciop.getparam('cat_index')
+    config_url = ciop.getparam('config_url')
+    username = ciop.getparam('username')
+    api_key = ciop.getparam('api_key')
+    pa_wkt = ciop.getparam('pa_wkt')
 
+    try:
+        r = requests.get(config_url, headers={"X-JFrog-Art-Api":api_key, 'User-Agent': 'curl/t2Client'})
+
+        ini_content = ''
+
+        if r.status_code == 200:
+            ini_content = r.content
+
+        if not ini_content:
+            raise ValueError
+
+        # read the configuration values
+        buf = StringIO.StringIO(ini_content)
+        config = configparser.ConfigParser()
+        config.readfp(buf)
+
+        ftp_server = str(config.get('ftp', 'hostname'))
+        ftp_user = str(config.get('ftp', 'user'))
+        ftp_passwd = str(config.get('ftp', 'passwd'))
+        base_path=str(config.get('ftp', 'base_path'))
+    except Exception as e:
+        ciop.log('ERROR', 'An error occurred while getting ftp config:\n %s' %e)
+        raise SystemExit(RUNTIME_ERR)
+        
+        #ftp_server = 'frontend.recas.ba.infn.it'
+        #ftp_user = 'terradue'
+        #ftp_passwd = 'Tateho1l!'
+        #base_path='/lustre/ecopotential/incoming/PAs'
+    
+    params = dict([('start', start),
+                   ('stop', stop),
+                   ('geom', pa_wkt),
+                   ('count',10000)])
+    
     # Loops over all the inputs
-    for reference in sys.stdin:
-      references.append(reference.rstrip())
+    for reference_input in sys.stdin:
+        #references.append(reference.rstrip())
+        try:
+            references = ciop.search(reference_input, params = params, output_fields='self', model='GeoTime')
+        except IndexError:
+            ciop.log('INFO', 'No datasets found for %s' %reference_input)
+            continue
+        except Exception as e:
+            ciop.log('ERROR', 'An error occurred while looking for datasets into %s' %reference_input)
+            raise SystemExit(ERR_GET_CAT)
+            
+        
     
-    for reference in references:
-               
-      stage_in(reference)
-      
-      runtime = os.path.join(ciop.tmp_dir, str(uuid.uuid4()))    
+        for ref in references:
+            reference = ref['self']
+            stage_in(reference)
 
-      os.makedirs(runtime)
-      os.chdir(runtime)
-   
-      # create the reproducibility notebook for data stage-in
-      reproducibility(runtime, reference)
-    
-      # execute the notebook
-      nb_source = os.path.join('/application', 'notebook', 'libexec', 'input.ipynb')
-      nb_target = os.path.join(runtime, 'result.ipynb')  
-      execute(identifiers[-1], reference, nb_source, nb_target, 'python2')  
-    
-      # publish
-      publish(runtime)   
-   
-      # clean-up 
-      clean_up(runtime)
+            runtime = os.path.join(ciop.tmp_dir, str(uuid.uuid4()))    
+
+            os.makedirs(runtime)
+            os.chdir(runtime)
+
+            # create the reproducibility notebook for data stage-in
+            reproducibility(runtime, reference)
+
+            # execute the notebook
+            nb_source = os.path.join('/application', 'notebook', 'libexec', 'input.ipynb')
+            nb_target = os.path.join(runtime, 'result.ipynb')  
+            execute(identifiers[-1], reference, nb_source, nb_target, 'python2')
+            
+
+            # ecopotential publish consisting of cnr ftp uploading and atom publish on the related catalog index 
+            ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path, cat_index, username, api_key)
+
+            # clean-up 
+            clean_up(runtime)
 
     # clean-up workspace folder
     shutil.rmtree(os.path.split(tmp_dir)[0])
 try:
-  main()
+    main()
 except SystemExit as e:
-  if e.args[0]:
-    clean_exit(e.args[0])
-  raise
+    if e.args[0]:
+          clean_exit(e.args[0])
+    raise
 else:
-  atexit.register(clean_exit, 0)
+    atexit.register(clean_exit, 0)
 
 

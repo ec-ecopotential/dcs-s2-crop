@@ -1,15 +1,19 @@
 # This file may be used to create an environment using:
 # $ conda create --name <env> --file <this file>
 # platform: linux-64
+_r-mutex=1.0.0=anacondar_1
 alabaster=0.7.10=py27he5a193a_0
 anaconda=custom=py27h4a00acb_0
+app_descriptor_generator=1.0.3=py27h88351b7_0
 asn1crypto=0.22.0=py27_0
 astroid=1.6.1=py27_0
 babel=2.5.0=py27h20693cd_0
+backoff=1.4.3=py27_0
 backports=1.0=py27h63c9359_1
 backports.functools_lru_cache=1.4=py27he8db605_1
 backports_abc=0.5=py27h7b3c97b_0
 basemap=1.0.7=np113py27_0
+bcrypt=3.1.4=py27h8473b39_0
 beautifulsoup4=4.6.0=py27h3f86ba9_1
 bleach=2.0.0=py27_0
 bokeh=0.12.10=py27he46cc6b_0
@@ -18,7 +22,7 @@ cairo=1.14.8=0
 certifi=2017.7.27.1=py27_0
 cffi=1.9.1=py27_0
 chardet=3.0.4=py27hfa10054_1
-cioppy=0.2.4=py27h8e77063_0
+cioppy=0.2.9=py27h6a2dc41_0
 click=6.7=py27h4225b90_0
 click-plugins=1.0.3=py27_0
 cligj=0.4.0=py27_0
@@ -35,6 +39,8 @@ dbus=1.10.10=0
 decorator=4.0.11=py27_0
 descartes=1.1.0=py27_0
 docutils=0.14=py27hae222c1_0
+ellip_metrics=0.0.2=py27h0587950_0
+ellip_triggers=0.0.1=py27h47b2a30_0
 entrypoints=0.2.2=py27_0
 enum34=1.1.6=py27_0
 expat=2.1.0=0
@@ -45,6 +51,7 @@ freetype=2.5.5=2
 functools32=3.2.3.2=py27_0
 futures=3.1.1=py27hdbc8cbb_0
 gdal=2.2.2=py27h3e23360_2
+geojson=2.3.0=py_0
 geopandas=0.3.0=py27_0
 geos=3.5.0=0
 get_terminal_size=1.0.0=py27_0
@@ -87,7 +94,7 @@ libgcc-ng=7.2.0=h7cc24e2_2
 libgfortran-ng=7.2.0=h9f7466a_2
 libiconv=1.14=0
 libnetcdf=4.4.1=0
-libpng=1.6.32=hbd3595f_4
+libpng=1.6.32=hda9c8bc_2
 libpq=9.5.4=0
 libsodium=1.0.10=0
 libspatialindex=1.8.5=1
@@ -96,7 +103,7 @@ libtiff=4.0.6=2
 libxcb=1.12=1
 libxml2=2.9.4=0
 libxslt=1.1.29=0
-lxml=4.1.0=py27hb025457_0
+lxml=4.1.1=py27hdd00cef_0
 markupsafe=0.23=py27_2
 matplotlib=2.0.2=np113py27_0
 mccabe=0.6.1=py27h0e7c7be_1
@@ -117,6 +124,7 @@ pandas=0.21.0=py27he307072_1
 pandoc=1.19.2.1=hea2e7c5_1
 pandocfilters=1.4.2=py27_0
 pango=1.40.3=1
+paramiko=2.4.0=py27hc00b698_0
 patchelf=0.9=hf79760b_2
 path.py=10.0=py27_0
 pathlib2=2.2.0=py27_0
@@ -138,13 +146,17 @@ pycairo=1.10.0=py27_0
 pycosat=0.6.3=py27ha4109ae_0
 pycparser=2.17=py27_0
 pycrypto=2.6.1=py27_4
+pycurl=7.43.0=py27_0
 pygments=2.1.3=py27_0
 pylint=1.8.2=py27_0
+pynacl=1.2.0=py27hefb0b17_0
 pyopenssl=16.2.0=py27_0
 pyparsing=2.1.4=py27_0
 pyproj=1.9.5.1=py27_0
 pyqt=5.6.0=py27_2
 pysal=1.14.2=py27heb65aa2_1
+pysftp=0.2.9=py27_0
+pyshp=1.2.12=py27h4b1cd21_0
 pytest=2.9.2=py27_0
 python=2.7.12=1
 python-dateutil=2.2=py27_0
@@ -262,6 +274,7 @@ r-tibble=1.2=r3.3.2_0
 r-tidyr=0.6.0=r3.3.2_0
 r-tidyverse=1.0.0=r3.3.2_0
 r-ttr=0.23_1=r3.3.2_0
+r-udunits2=0.13=r3.3.2_0
 r-uuid=0.1_2=r3.3.2_0
 r-whisker=0.3_2=r3.3.2_2
 r-withr=1.0.2=r3.3.2_0
@@ -282,7 +295,7 @@ simplegeneric=0.8.1=py27_1
 singledispatch=3.4.0.3=py27_0
 sip=4.18=py27_0
 six=1.10.0=py27_0
-snappy=5.0=py27h4e28427_0
+snappy=5.0=py27_0
 snowballstemmer=1.2.1=py27h44e2768_0
 sphinx=1.6.3=py27hf9b1778_0
 sphinx_bootstrap_theme=0.5.3=py27_0
@@ -300,6 +313,7 @@ tk=8.5.18=0
 tornado=4.4.2=py27_0
 traitlets=4.3.1=py27_0
 typing=3.6.2=py27h66f49e2_0
+udunits2=2.2.25=hd30922c_1
 wcwidth=0.1.7=py27_0
 webencodings=0.5=py27_0
 wheel=0.29.0=py27_0

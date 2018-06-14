@@ -232,6 +232,13 @@ class ISOMetadata:
                          'A:geographicIdentifier/A:MD_Identifier/A:code/B:CharacterString',
                         pa)
     
+    def set_onlineResource(self, download_URL):
+        
+        self.update_text('//A:MD_Metadata/A:distributionInfo/A:MD_Distribution/' +
+                         'A:transferOptions/A:MD_DigitalTransferOptions/A:onLine/A:CI_OnlineResource/' +
+                         'A:linkage/A:URL',
+                        download_URL)
+        
     def metadata(self):
                          
         return etree.tostring(self.tree, pretty_print=True)   
