@@ -4,11 +4,6 @@ buildInfo.env.capture = true
 
 pipeline {
 
-  parameters{
-    // TODO: release parameter for end user
-    booleanParam(name: 'RELEASE', defaultValue: false, description: 'If this parameter is set, the build will publish the processor as a release ready for production.', )
-  }
-
   options {
     // Kepp 5 builds history
     buildDiscarder(logRotator(numToKeepStr: '5'))
@@ -17,7 +12,7 @@ pipeline {
   agent {
     node {
       // docker community builder
-      label 'ci-community-docker-internal'
+      label 'ci-community-docker'
     }
   }
 
