@@ -18,15 +18,19 @@ sys.path.append('/opt/anaconda/bin/')
 import cioppy
 ciop = cioppy.Cioppy()
 
+import StringIO
+import configparser
 import pysftp
 import traceback
+import ast
 
 
 # define the exit codes
 SUCCESS = 0
-ERR_NB_RUNTIME=10
-ERR_GET_CAT=20
-ERR_IMPORT_CAT=30
+ERR_NB_RUNTIME = 10
+ERR_GET_CAT = 20
+ERR_IMPORT_CAT = 30
+RUNTIME_ERR = 40
 
 references = []
 identifiers = []
@@ -42,12 +46,13 @@ def clean_exit(exit_code):
     msg = {SUCCESS: 'Processing successfully concluded',
            ERR_NB_RUNTIME: 'Failed to run notebook',
            ERR_GET_CAT: 'Error in catalog get',
-           ERR_IMPORT_CAT: 'Error in catalog import'
+           ERR_IMPORT_CAT: 'Error in catalog import',
+           RUNTIME_ERR: 'Processing failed'
     }
  
     ciop.log(log_level, msg[exit_code])  
     
-def parametrize(reference):
+def parametrize(identifier, reference):
     
     global nb
     
@@ -147,7 +152,7 @@ def stage_in(reference):
     search = ciop.search(end_point = reference, params = [], output_fields='enclosure,identifier', model='GeoTime')
     assert(search), sys.exit(ERR_RESOLUTION)
   
-    ciop.log('INFO', 'Retrieve %s from %s' % (search[0]['identifier'], search[0]['enclosure']))
+    ciop.log('INFO', 'Retrieving %s from %s' % (search[0]['identifier'], search[0]['enclosure']))
     retrieved = ciop.copy(search[0]['enclosure'], tmp_dir)
     assert(retrieved), sys.exit(ERR_STAGEIN)
 
@@ -257,7 +262,7 @@ def update_atom(atom, hostname, remote_path, product):
 def catalog_publish(reference, product, index, hostname, remote_path, username, api_key):
     
     exit_v = 0   
-    
+    new_identifier = os.path.splitext(product)[0]
     try:
         atom = ciop.search(reference, params = [], output_fields='{}', model='EOP')
     except Exception as e:
@@ -300,7 +305,7 @@ def ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path
 
     m = re.search('(S2.*)_PA_.*$', product)
     
-    assert m.groups()[0] == reference.split('=')[1], 'ERROR on data selection: %s != %s' %(os.path.splitext(product),reference.split('=')[1])
+    assert m.groups()[0] == reference.split('=')[2], 'ERROR on data selection: %s != %s' %(m.groups()[0],reference.split('=')[2])
         
     m = re.search(regexp, product)
     date_path = '%s/%02d/%02d' % (m.groups()[0], int(m.groups()[1]), int(m.groups()[2]))
@@ -311,8 +316,8 @@ def ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path
 
     middle_path = '%s/%s/EO_Data/%s/Raw/'%(base_path, pa_name, ftp_index.capitalize())
         
-    remote_path = os.path.join(middle_path, os.path.join('test-t2',date_path))
-    #remote_path = os.path.join(middle_path, date_path)
+    #remote_path = os.path.join(middle_path, os.path.join('test-t2',date_path))
+    remote_path = os.path.join(middle_path, date_path)
 
     ciop.log('DEBUG','remote_path: %s' %remote_path)
     
@@ -381,11 +386,14 @@ def main():
         ftp_user = str(config.get('ftp', 'user'))
         ftp_passwd = str(config.get('ftp', 'passwd'))
         base_path=str(config.get('ftp', 'base_path'))
-    except:
-        ftp_server = 'frontend.recas.ba.infn.it'
-        ftp_user = 'terradue'
-        ftp_passwd = 'Tateho1l!'
-        base_path='/lustre/ecopotential/incoming/PAs'
+    except Exception as e:
+        ciop.log('ERROR', 'An error occurred while getting ftp config:\n %s' %e)
+        raise SystemExit(RUNTIME_ERR)
+        
+        #ftp_server = 'frontend.recas.ba.infn.it'
+        #ftp_user = 'terradue'
+        #ftp_passwd = 'Tateho1l!'
+        #base_path='/lustre/ecopotential/incoming/PAs'
     
     params = dict([('start', start),
                    ('stop', stop),
@@ -406,9 +414,9 @@ def main():
             
         
     
-        for reference in references:
-            
-            stage_in(reference['self'])
+        for ref in references:
+            reference = ref['self']
+            stage_in(reference)
 
             runtime = os.path.join(ciop.tmp_dir, str(uuid.uuid4()))    
 
