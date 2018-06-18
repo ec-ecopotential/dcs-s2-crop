@@ -8,7 +8,7 @@
       </defaultJobconf>
     </jobTemplate>
   </jobTemplates>
-  <workflow id="s2_crop" title="S2 CROP" abstract="Sentinel-2 crop">
+  <workflow id="s2_crop" title="S2 Crop and GeoTiff conversion" abstract="Sentinel-2 crop and GeoTiff conversion">
     <workflowVersion>1.0</workflowVersion>
     <node id="notebook">
       <job id="notebook"/>
