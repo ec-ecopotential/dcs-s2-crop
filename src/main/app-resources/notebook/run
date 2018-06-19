@@ -390,10 +390,6 @@ def main():
         ciop.log('ERROR', 'An error occurred while getting ftp config:\n %s' %e)
         raise SystemExit(RUNTIME_ERR)
         
-        #ftp_server = 'frontend.recas.ba.infn.it'
-        #ftp_user = 'terradue'
-        #ftp_passwd = 'Tateho1l!'
-        #base_path='/lustre/ecopotential/incoming/PAs'
     
     params = dict([('start', start),
                    ('stop', stop),
