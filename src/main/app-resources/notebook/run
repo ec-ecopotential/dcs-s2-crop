@@ -2,6 +2,9 @@
 
 import sys
 reload(sys)
+if sys.path.count('/application/notebook/libexec/') == 0:
+    sys.path.append('/application/notebook/libexec/')
+
 sys.setdefaultencoding('utf8')
 import os
 import io
@@ -14,7 +17,8 @@ import re
 import lxml.etree as etree
 import requests
 
-sys.path.append('/opt/anaconda/bin/')
+if sys.path.count('/opt/anaconda/bin/') == 0:
+    sys.path.insert(0,'/opt/anaconda/bin/')
 import cioppy
 ciop = cioppy.Cioppy()
 
@@ -24,6 +28,14 @@ import pysftp
 import traceback
 import ast
 
+import shapefile
+from shapely.geometry import shape
+from shapely.wkt import loads
+from shapely import geometry
+
+import ATOMMetadata
+import gdal
+import osr
 
 # define the exit codes
 SUCCESS = 0
@@ -52,7 +64,7 @@ def clean_exit(exit_code):
  
     ciop.log(log_level, msg[exit_code])  
     
-def parametrize(identifier, reference):
+def parametrize(identifier, pa_series, configuration_url):
     
     global nb
     
@@ -75,8 +87,12 @@ def parametrize(identifier, reference):
                         cell['source'] = 'input_identifier = \'%s\'' % identifier  
                 
                     if names[0] == 'input_reference':
-                        ciop.log('INFO', 'cell %s updated with \'input_reference\' value %s' % (index, reference))
-                        cell['source'] = 'input_reference = \'%s\'' % reference  
+                        ciop.log('INFO', 'cell %s updated with \'input_reference\' value %s' % (index, pa_series))
+                        cell['source'] = 'input_reference = \'%s\'' % pa_series
+                        
+                    if names[0] == 'input_config_url':
+                        ciop.log('INFO', 'cell %s updated with \'input_config_url\' value %s' % (index, configuration_url))
+                        cell['source'] = 'input_config_url = \'%s\'' % configuration_url
                 
                 if len(names) != 2:
                     continue
@@ -125,7 +141,8 @@ def reproducibility(path, reference):
     code.append(nbf.v4.new_code_cell("""\
 import os
 import sys
-sys.path.append('/opt/anaconda/bin/')
+if sys.path.count('/opt/anaconda/bin/') == 0:
+    sys.path.insert(0,'/opt/anaconda/bin/')
 import cioppy
 ciop = cioppy.Cioppy()"""))
     
@@ -160,7 +177,7 @@ def stage_in(reference):
     enclosures.append(search[0]['enclosure'])
     local_files.append(retrieved)    
     
-def execute(identifier, reference, nb_source, nb_target, kernel = 'python2'):
+def execute(identifier, pa_series, config_url, nb_source, nb_target, kernel = 'python2'):
     
     global nb
    
@@ -168,7 +185,7 @@ def execute(identifier, reference, nb_source, nb_target, kernel = 'python2'):
     
     ciop.log('INFO', 'Execute notebook')
     
-    parametrize(identifier, reference)
+    parametrize(identifier, pa_series, config_url)
     
     # execute the notebook
     ep = ExecutePreprocessor(timeout=None, kernel_name=kernel)
@@ -226,58 +243,59 @@ def post_request(endpoint, data, auth, headers={}):
                          data=data,
                          headers=headers,
                          auth=auth)
-
-
-def update_atom(atom, hostname, remote_path, product):
+    
+def create_atom(reference, pa_wkt, hostname, remote_path, product_path):
                      
-    my_target_enclosure = 'sftp://%s/%s/%s' %(hostname, remote_path, product)
-    
-    new_identifier = os.path.splitext(product)[0]
-    
-    root = etree.fromstring(atom)
-    
-    enclosure_elem = root.xpath('/a:feed/a:entry/a:link[@title="Download via Data Gateway"]', 
-                             namespaces={'a':'http://www.w3.org/2005/Atom'})
-    eop_id_elem = root.xpath('/a:feed/a:entry/o:EarthObservation/e:metaDataProperty/e:EarthObservationMetaData/e:identifier', 
-                             namespaces={'a':'http://www.w3.org/2005/Atom',
-                                         'e':'http://www.opengis.net/eop/2.1',
-                                         'o':'http://www.opengis.net/opt/2.1'})
-
-    id_elem = root.xpath('/a:feed/a:entry/d:identifier', 
-                         namespaces={'a':'http://www.w3.org/2005/Atom',
-                                     'd':'http://purl.org/dc/elements/1.1/'})
-
-    enclosure_elem[0].attrib['title'] =  'Download via %s server' %hostname
-    enclosure_elem[0].attrib['href'] =  my_target_enclosure
-    
-    eop_id_elem[0].text = new_identifier
-   
-    id_elem[0].text = new_identifier
-
-    ciop.log('INFO','ATOM UPDATED')
-    
-    return etree.tostring(root, pretty_print=True)
-    
-    
-def catalog_publish(reference, product, index, hostname, remote_path, username, api_key):
-    
-    exit_v = 0   
-    new_identifier = os.path.splitext(product)[0]
     try:
-        atom = ciop.search(reference, params = [], output_fields='{}', model='EOP')
+        infos = ciop.search(reference, params = [], output_fields='platform,productType,track,startdate,enddate,wkt', model='EOP')
     except Exception as e:
-        ciop.log('ERROR', 'An error occurred while retrieving atom for %s' %reference)
+        ciop.log('ERROR', 'An error occurred while retrieving info for %s' %reference)
         raise SystemExit(ERR_GET_CAT)
-                     
-    new_atom = update_atom(atom, hostname, remote_path, product)
-                     
+        
+    atom_metadata = ATOMMetadata.ATOMMetadata()
+    
+    product = os.path.basename(product_path)
+    new_identifier = os.path.splitext(product)[0]
+    
+    title = '%s %s INSNOBS Level1C %s %s' %(infos[0]['platform'], infos[0]['productType'], infos[0]['track'],infos[0]['startdate'])
+
+    wkt = get_wkt_intersect(infos[0]['wkt'], pa_wkt)
+    bbox = wkt.bounds
+    box='%s %s %s %s' %(bbox[1],bbox[0],bbox[3],bbox[2])
+    coords = wkt.boundary.coords.xy
+    
+    polygon = ''
+    for i,lon in enumerate(coords[0]):
+        polygon = '%s %s %s' %(polygon,coords[1][i],lon)
+    polygon = polygon.lstrip()
+    
+    download_URL = 'sftp://%s/%s/%s' %(hostname, remote_path, new_identifier)
+    
+    atom_metadata.set_title(title)
+    atom_metadata.set_identifier(new_identifier)
+    atom_metadata.set_bbox(box)
+    atom_metadata.set_spatial(str(wkt))
+    atom_metadata.set_productType(infos[0]['productType'])
+    atom_metadata.set_polygon(polygon)
+    atom_metadata.set_date(infos[0]['startdate'],infos[0]['enddate'])
+    atom_metadata.set_onlineResource(download_URL,hostname)
+    
+    return (new_identifier,atom_metadata.metadata())
+    
+    
+def catalog_publish(reference, product_path, pa_wkt, index, hostname, remote_path, username, api_key):
+    
+    exit_v = 0
+    
+    new_identifier,atom = create_atom(reference, pa_wkt, hostname, remote_path, product_path)
+    
     endpoint = 'https://catalog.terradue.com/%s' % index
 
     headers = {"Content-Type": "application/atom+xml", "Accept": "application/xml"}
                 
     try:
         request_track = post_request(endpoint ,
-                                     new_atom,
+                                     atom,
                                      (username, api_key),
                                      headers)
     except Exception,e:
@@ -291,22 +309,15 @@ def catalog_publish(reference, product, index, hostname, remote_path, username, 
     return exit_v
 
     
-def ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path, index, username, api_key):
+def ecop_publish(runtime, reference, product, pa_wkt, ftp_server, ftp_user, ftp_passwd, base_path, index, username, api_key):
 
     exit_value = 0
-    regexp = 'S2._MSI..._([0-9]{4})([0-9]{2})([0-9]{2})T(.*)_PA_(.*)_(.*)$'
-    
-    zip_files = filter(lambda x: x.endswith('.zip'), os.listdir(runtime))
-    
-    if len(zip_files) == 0:
-        return 1
-
-    product = zip_files[0]
 
     m = re.search('(S2.*)_PA_.*$', product)
     
     assert m.groups()[0] == reference.split('=')[2], 'ERROR on data selection: %s != %s' %(m.groups()[0],reference.split('=')[2])
-        
+    
+    regexp = 'S2._MSI..._([0-9]{4})([0-9]{2})([0-9]{2})T(.*)_PA_(.*)_(.*)$'    
     m = re.search(regexp, product)
     date_path = '%s/%02d/%02d' % (m.groups()[0], int(m.groups()[1]), int(m.groups()[2]))
     pa_name = m.groups()[4]
@@ -330,8 +341,9 @@ def ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path
     ciop.log('DEBUG','files: %s' %files)
         
     if sftp_upload(files, ftp_server, ftp_user, ftp_passwd, remote_path):
-        ciop.log('INFO','%s and %s uploaded' % (zip_path, xml_file))       
-        out = catalog_publish(reference, product, index, ftp_server, remote_path, username, api_key)
+        ciop.log('INFO','%s and %s uploaded' % (zip_path, xml_file)) 
+        product_path = os.path.join(runtime, product)
+        out = catalog_publish(reference, product_path, pa_wkt, index, ftp_server, remote_path, username, api_key)
         if (out == 1):
             ciop.log('ERROR','catalog publishing : FAILED')
             exit_value = 1
@@ -342,14 +354,27 @@ def ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path
         exit_value = 1
                     
     return exit_value
-                     
+
+def get_wkt_intersect(wkt1,wkt2):
+    a=loads(wkt1)
+    if str(wkt2[0:5]) == "POINT":
+        wkt2 = wkt2.replace(',',' ')
+    b=loads(wkt2)
+    if str(wkt2[0:5]) == "POINT":
+        intersec = (a.touches(b) or b.within(a))
+        if intersec:
+            intersec = wkt2
+    else:
+        intersec = a.intersection(b)
+    
+    return intersec
+
 def clean_up(runtime):
            
-    # clean-up 
-    shutil.rmtree(runtime)
     # delete last retrieved file
     shutil.rmtree(local_files[-1])
-
+    # clean-up 
+    shutil.rmtree(runtime)
 
     
 def main():
@@ -360,11 +385,12 @@ def main():
     os.makedirs(tmp_dir)
     start = ciop.getparam('start')
     stop = ciop.getparam('stop')
+    time_filter_type = ciop.getparam('time_filter_type')
     cat_index = ciop.getparam('cat_index')
     config_url = ciop.getparam('config_url')
     username = ciop.getparam('username')
     api_key = ciop.getparam('api_key')
-    pa_wkt = ciop.getparam('pa_wkt')
+    endpoint = ciop.getparam('endpoint')
 
     try:
         r = requests.get(config_url, headers={"X-JFrog-Art-Api":api_key, 'User-Agent': 'curl/t2Client'})
@@ -375,13 +401,13 @@ def main():
             ini_content = r.content
 
         if not ini_content:
+            ciop.log('ERROR', 'An error occurred while getting ftp config (http exit code  %s)' %r.status_code)
             raise ValueError
 
         # read the configuration values
         buf = StringIO.StringIO(ini_content)
         config = configparser.ConfigParser()
         config.readfp(buf)
-
         ftp_server = str(config.get('ftp', 'hostname'))
         ftp_user = str(config.get('ftp', 'user'))
         ftp_passwd = str(config.get('ftp', 'passwd'))
@@ -389,28 +415,38 @@ def main():
     except Exception as e:
         ciop.log('ERROR', 'An error occurred while getting ftp config:\n %s' %e)
         raise SystemExit(RUNTIME_ERR)
-        
     
-    params = dict([('start', start),
+    
+    # Loops over all the inputs
+    for input in sys.stdin:
+        
+        pa_series = input.rstrip()
+        pa_wkt = str(config.get(pa_series, 'pa_wkt'))
+        
+        params = dict([('start', start),
                    ('stop', stop),
                    ('geom', pa_wkt),
                    ('count',10000)])
-    
-    # Loops over all the inputs
-    for reference_input in sys.stdin:
-        #references.append(reference.rstrip())
-        try:
-            references = ciop.search(reference_input, params = params, output_fields='self', model='GeoTime')
-        except IndexError:
-            ciop.log('INFO', 'No datasets found for %s' %reference_input)
-            continue
-        except Exception as e:
-            ciop.log('ERROR', 'An error occurred while looking for datasets into %s' %reference_input)
-            raise SystemExit(ERR_GET_CAT)
-            
         
+        if time_filter_type == 'update':
+            params = dict([('update', '%s/%s' %(start,stop)),
+                   ('spatialCover',spatialCover),
+                   ('count',10000)])
+        
+        try:
+            references = ciop.search(endpoint, params = params, output_fields='self', model='GeoTime')
+            
+        except IndexError:
+            
+            ciop.log('INFO', 'No datasets found for %s' %pa_series)
+            continue
+            
+        except Exception as e:
+            ciop.log('ERROR', 'An error occurred while looking for datasets over %s PA' %pa_series )
+            raise SystemExit(ERR_GET_CAT)
     
         for ref in references:
+            
             reference = ref['self']
             stage_in(reference)
 
@@ -424,12 +460,24 @@ def main():
 
             # execute the notebook
             nb_source = os.path.join('/application', 'notebook', 'libexec', 'input.ipynb')
-            nb_target = os.path.join(runtime, 'result.ipynb')  
-            execute(identifiers[-1], reference, nb_source, nb_target, 'python2')
+            nb_target = os.path.join(runtime, 'result.ipynb')
             
-
-            # ecopotential publish consisting of cnr ftp uploading and atom publish on the related catalog index 
-            ecop_publish(runtime, reference, ftp_server, ftp_user, ftp_passwd, base_path, cat_index, username, api_key)
+            try:
+                execute(identifiers[-1], pa_series, config_url, nb_source, nb_target, 'python2')
+            except Exception as e:
+                ciop.log('ERROR', 'An error occurred while executing notebook on %s :\n %s' %(identifiers[-1],e))
+                raise SystemExit(RUNTIME_ERR)
+            
+            regexp = 'S2._MSI..._([0-9]{4})([0-9]{2})([0-9]{2})T(.*)_PA_(.*)_(.*)$'
+    
+            zip_files = filter(lambda x: x.endswith('.zip'), os.listdir(runtime))
+    
+            if len(zip_files) == 0:
+                ciop.log('INFO','%s has not been selected for publication' %identifiers[-1])
+            else:  
+                product = zip_files[0] 
+                # ecopotential publish consisting of cnr ftp uploading and atom publish on the related catalog index 
+                ecop_publish(runtime, reference, product, pa_wkt, ftp_server, ftp_user, ftp_passwd, base_path, cat_index, username, api_key)
 
             # clean-up 
             clean_up(runtime)
