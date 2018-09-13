@@ -426,6 +426,7 @@ def main():
         params = dict([('start', start),
                    ('stop', stop),
                    ('geom', pa_wkt),
+                   ('pt', 'S2MSI1C'),    
                    ('count',10000)])
         
         if time_filter_type == 'update':
@@ -473,7 +474,7 @@ def main():
             zip_files = filter(lambda x: x.endswith('.zip'), os.listdir(runtime))
     
             if len(zip_files) == 0:
-                ciop.log('INFO','%s has not been selected for publication' %identifiers[-1])
+                ciop.log('INFO','%s HAS NOT BEN SELECTED for publication' %identifiers[-1])
             else:  
                 product = zip_files[0] 
                 # ecopotential publish consisting of cnr ftp uploading and atom publish on the related catalog index 
