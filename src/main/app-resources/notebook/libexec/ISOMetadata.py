@@ -3,8 +3,10 @@ import sys
 import requests
 import os
 import string
+from StringIO import StringIO
 import hashlib
 import urllib2
+import copy
 
 class ISOMetadata:
     
@@ -24,11 +26,51 @@ class ISOMetadata:
     
     def update_text(self, xpath, text):
         
-        el = self.root.xpath(xpath, namespaces=self.iso_namespaces)
-        
+        #print 'setting: ', text
+        el = self.root.xpath(xpath, namespaces=self.iso_namespaces)    
         el[0].text = text
-
     
+    
+    def update_elem_text(self, xml_elem, xpath, text):
+        
+        el = xml_elem.xpath(xpath, namespaces=self.iso_namespaces)
+        el[0].text = text
+    
+    
+    def get_element_copy(self, ref_path):
+         
+        return copy.deepcopy(self.root.find(ref_path, self.iso_namespaces))
+    
+        
+    def add_element_root_based_path(self, ref_path, xml_element):
+
+        els = self.root.findall(ref_path, self.iso_namespaces)
+    
+        first_el = self.root.find(ref_path, self.iso_namespaces)
+
+        first_el_index = self.root.index(first_el)
+  
+        els[0].getparent().insert(first_el_index + len(els), xml_element)
+
+        
+    def add_element(self, ref_path, xml_element):
+
+        ref_path_list = ref_path.split('/')
+       
+        sub_els = list()
+        
+        sub_els =[{'index':self.root.index(self.root.findall(ref_path_list[0], self.iso_namespaces)[-1]), 
+                   'last_element': self.root.findall(ref_path_list[0], self.iso_namespaces)[-1]}]
+        
+        for i in range(1,len(ref_path_list)):
+            # navigate the elements tree to reach the last given position of the required ref_path
+            el = sub_els[i-1]['last_element'].findall(ref_path_list[i], self.iso_namespaces)[-1]
+            ind = sub_els[i-1]['last_element'].index(el)
+            sub_els.append({'index':ind+1, 'last_element' : el})
+            
+        sub_els[-1]['last_element'].getparent().insert(sub_els[-1]['index'],xml_element)
+        
+        
     def set_identifier(self, identifier):
 
         self.update_text('//A:MD_Metadata/A:fileIdentifier/B:CharacterString', 
@@ -40,9 +82,11 @@ class ISOMetadata:
                          'A:code/B:CharacterString', 
                          identifier)
     
+    
     def set_organisation(self, organisation):
         
-        self.update_text('//A:MD_Metadata/A:contact/A:CI_ResponsibleParty/A:organisationName/B:CharacterString',
+        self.update_text('//A:MD_Metadata/A:contact/A:CI_ResponsibleParty' +
+                         '/A:organisationName/B:CharacterString',
                          organisation)
         
         self.update_text('//A:MD_Metadata/A:identificationInfo/' +
@@ -61,17 +105,124 @@ class ISOMetadata:
                          'A:MD_DataIdentification/A:pointOfContact/' +
                          'A:CI_ResponsibleParty/A:contactInfo/A:CI_Contact/' +
                          'A:address/A:CI_Address/A:electronicMailAddress/B:CharacterString',
-                         contact)        
+                         contact)
+
+        
+    def fillin_spatialReprInfo(self, sp_Repr_info_el, spatial_info):
+        
+        self.update_elem_text(sp_Repr_info_el, 
+                              '//A:spatialRepresentationInfo/' +
+                              'A:MD_Georectified/' +
+                              'A:cornerPoints/' +
+                              'C:Point[@C:id=\"NW_corner\"]/' +
+                              'C:pos',
+                              spatial_info['nw_corner'])
+        
+        self.update_elem_text(sp_Repr_info_el,
+                              '//A:spatialRepresentationInfo/' +
+                              'A:MD_Georectified/' +
+                              'A:cornerPoints/' +
+                              'C:Point[@C:id=\"SE_corner\"]/' +
+                              'C:pos', 
+                              spatial_info['se_corner'])
+        
+        self.update_elem_text(sp_Repr_info_el, 
+                              '//A:spatialRepresentationInfo/' +
+                              'A:MD_Georectified/A:axisDimensionProperties/' +
+                              'A:MD_Dimension[A:dimensionName/' +
+                              'A:MD_DimensionNameTypeCode/text()=\"Row\"]/A:dimensionSize/B:Integer', 
+                              spatial_info['row_size'])
+        
+        self.update_elem_text(sp_Repr_info_el, 
+                              '//A:spatialRepresentationInfo/' +
+                              'A:MD_Georectified/A:axisDimensionProperties/' +
+                              'A:MD_Dimension[A:dimensionName/' +
+                              'A:MD_DimensionNameTypeCode/text()=\"Column\"]/' +
+                              'A:dimensionSize/B:Integer', 
+                               spatial_info['col_size'])
+        
+        self.update_elem_text(sp_Repr_info_el, 
+                              '//A:spatialRepresentationInfo/' +
+                              'A:MD_Georectified/A:axisDimensionProperties/' +
+                              'A:MD_Dimension[A:dimensionName/' +
+                              'A:MD_DimensionNameTypeCode/text()=\"Column\"]/' +
+                              'A:resolution/B:Length', 
+                              spatial_info['col_res'])
+
+        self.update_elem_text(sp_Repr_info_el, 
+                              '//A:spatialRepresentationInfo/' +
+                              'A:MD_Georectified/A:axisDimensionProperties/' +
+                              'A:MD_Dimension[A:dimensionName/' +
+                              'A:MD_DimensionNameTypeCode/text()=\"Row\"]/' +
+                              'A:resolution/B:Length', 
+                               spatial_info['row_res'])
+        
+    
+    def set_spatialReprInfo_elems(self, spatial_infos, bands_ref_list):
+        
+        ref_path = 'A:spatialRepresentationInfo'
+        
+        #update first element
+        spatial_info = spatial_infos[bands_ref_list[0]]
+
+        self.set_nw_corner(spatial_info['nw_corner'])
+        self.set_se_corner(spatial_info['se_corner'])
+        self.set_row_size(spatial_info['row_size'])
+        self.set_col_size(spatial_info['col_size'])
+        self.set_row_res(spatial_info['row_res'])
+        self.set_col_res(spatial_info['col_res'])
+        
+        #insert all other required properly filled in elements
+        for band in bands_ref_list[1:]:
+            
+            spatial_info = spatial_infos[band]
+            
+            # get the element copy
+            sp_Repr_info_el = self.get_element_copy(ref_path)
+            
+            # fill in the element with the proper values
+            self.fillin_spatialReprInfo(sp_Repr_info_el, spatial_info)
+            
+            # add the current element to the previous one
+            self.add_element(ref_path, sp_Repr_info_el)
+            
+        
+    def set_spatial_resolutions(self, sp_res):
+        
+        ref_path = 'A:identificationInfo/A:MD_DataIdentification/A:spatialResolution'
+        
+        #update first element
+        self.update_text('//A:MD_Metadata/A:identificationInfo/' \
+                         'A:MD_DataIdentification/A:spatialResolution/' \
+                         'A:MD_Resolution/A:distance/B:Distance',
+                         sp_res[0])
+        
+        #insert all other required elements
+        for sp in sp_res[1:]:
+            
+            # get the element copy
+            sp_resolution_el = self.get_element_copy(ref_path)
+            
+            # fill in the element with the proper values
+            xpath = '//A:spatialResolution/A:MD_Resolution/A:distance/B:Distance'
+            self.update_elem_text(sp_resolution_el, xpath, sp)
+            
+            # add the current element to the previous one
+            self.add_element(ref_path, sp_resolution_el)
+            
         
     def set_date(self, date):
         
         self.update_text('//A:MD_Metadata/A:dateStamp/B:Date',
                         date)
         
+        
+    def set_creation_date(self, datetime):
+        
         self.update_text('//A:MD_Metadata/A:identificationInfo/' +
                          'A:MD_DataIdentification/A:citation/' + 
-                         'A:CI_Citation/A:date/A:CI_Date/A:date/B:Date',
-                        date)
+                         'A:CI_Citation/A:date/A:CI_Date/A:date/B:DateTime',
+                        datetime)
 
     def set_row_size(self, row_size):
         
@@ -90,6 +241,27 @@ class ISOMetadata:
                          'A:MD_DimensionNameTypeCode/text()=\"Column\"]/' +
                          'A:dimensionSize/B:Integer',
                          col_size) 
+    
+    
+    def set_col_res(self, col_res):
+        
+        self.update_text('//A:MD_Metadata/A:spatialRepresentationInfo/' +
+                         'A:MD_Georectified/A:axisDimensionProperties/' + 
+                         'A:MD_Dimension[A:dimensionName/' + 
+                         'A:MD_DimensionNameTypeCode/text()=\"Column\"]/' +
+                         'A:resolution/B:Length',
+                         col_res)
+        
+        
+    def set_row_res(self, row_res):
+        
+        self.update_text('//A:MD_Metadata/A:spatialRepresentationInfo/' +
+                         'A:MD_Georectified/A:axisDimensionProperties/' + 
+                         'A:MD_Dimension[A:dimensionName/' + 
+                         'A:MD_DimensionNameTypeCode/text()=\"Row\"]/' +
+                         'A:resolution/B:Length',
+                         row_res)
+    
     
     def set_pixel_size(self, pixel_size):
         
@@ -223,6 +395,17 @@ class ISOMetadata:
                          'A:DQ_DataQuality/A:lineage/A:LI_Lineage/' + 
                          'A:statement/B:CharacterString',
                         data_quality)
+    
+    def set_lineage_template(self, template_str):
+        
+        ref_path = 'A:dataQualityInfo/A:DQ_DataQuality/A:lineage/A:LI_Lineage/A:statement'
+        first_el = self.root.find(ref_path, self.iso_namespaces)
+        #/text()=\"template\"',
+        self.update_text('//A:MD_Metadata/A:dataQualityInfo/' +
+                         'A:DQ_DataQuality/A:lineage/A:LI_Lineage/' + 
+                         'A:statement/B:CharacterString',
+                         template_str)
+
         
     def set_pa(self, pa):
         
@@ -238,6 +421,7 @@ class ISOMetadata:
                          'A:transferOptions/A:MD_DigitalTransferOptions/A:onLine/A:CI_OnlineResource/' +
                          'A:linkage/A:URL',
                         download_URL)
+        
         
     def metadata(self):
                          
