@@ -341,16 +341,16 @@ def ecop_publish(runtime, reference, product, pa_wkt, ftp_server, ftp_user, ftp_
     ciop.log('DEBUG','files: %s' %files)
         
     if sftp_upload(files, ftp_server, ftp_user, ftp_passwd, remote_path):
-        ciop.log('INFO','%s and %s uploaded' % (zip_path, xml_file)) 
+        ciop.log('INFO','FTP publication : DONE')
         product_path = os.path.join(runtime, product)
         out = catalog_publish(reference, product_path, pa_wkt, index, ftp_server, remote_path, username, api_key)
         if (out == 1):
-            ciop.log('ERROR','catalog publishing : FAILED')
+            ciop.log('ERROR','catalog publication : FAILED')
             exit_value = 1
         else:
-            ciop.log('INFO','catalog publishing : DONE')
+            ciop.log('INFO','catalog publication : DONE')
     else:
-        ciop.log('ERROR','%s NOT published' % zip_path)
+        ciop.log('ERROR','%s NOT published' % os.path.splitext(product)[0])
         exit_value = 1
                     
     return exit_value
