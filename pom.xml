@@ -11,7 +11,7 @@
     <version>3.0.0-docker</version>
   </parent>
   <description>Sentinel-2 crop</description>
-  <version>1.11</version>
+  <version>1.12</version>
   <properties>
     <summary>Sentinel-2 crop</summary>
     <description>Sentinel-2 crop</description>
