@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.terradue</groupId>
     <artifactId>dcs-python-parent</artifactId>
-    <version>3.0.0-docker</version>
+    <version>3.0.1-docker</version>
   </parent>
   <description>Sentinel-2 crop</description>
   <version>1.12</version>
