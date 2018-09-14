@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <id>https://catalog.terradue.com:443/ecop_cnr_issia/search?format=atom&amp;uid=IDENTIFIER</id>
+    <title type="text">PSN PT INSNOBS Level1C TRACK_NUMBER DATETIME GMT</title>
+    <published>2018-06-10T08:58:50.642137Z</published>
+    <updated>2018-07-05T05:21:06.292478Z</updated>
+    <link rel="enclosure" type="application/octet-stream" title="TITLE" href="HREF"/>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">POINTSLIST</georss:polygon>
+    <box xmlns="http://www.georss.org/georss">BBOX</box>
+    <date xmlns="http://purl.org/dc/elements/1.1/">STRATDATE/ENDDATE</date>
+    <spatial xmlns="http://purl.org/dc/terms/">WKT</spatial>
+    <productType xmlns="http://www.opengis.net/eop/2.1">PRODUCTTYPE</productType>
+    <identifier xmlns="http://purl.org/dc/elements/1.1/">IDENTIFIER</identifier>
+  </entry>
+</feed>
