@@ -190,6 +190,7 @@ class ISOMetadata:
     def set_spatial_resolutions(self, sp_res):
         
         ref_path = 'A:identificationInfo/A:MD_DataIdentification/A:spatialResolution'
+        sp_resolution_el = self.get_element_copy(ref_path)
         
         #update first element
         self.update_text('//A:MD_Metadata/A:identificationInfo/' \
@@ -201,7 +202,7 @@ class ISOMetadata:
         for sp in sp_res[1:]:
             
             # get the element copy
-            sp_resolution_el = self.get_element_copy(ref_path)
+            #sp_resolution_el = self.get_element_copy(ref_path)
             
             # fill in the element with the proper values
             xpath = '//A:spatialResolution/A:MD_Resolution/A:distance/B:Distance'
