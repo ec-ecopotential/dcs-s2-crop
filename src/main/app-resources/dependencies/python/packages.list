@@ -3,6 +3,7 @@
 # platform: linux-64
 _r-mutex=1.0.0=anacondar_1
 alabaster=0.7.10=py27he5a193a_0
+altair=2.1.0=py_0
 anaconda=custom=py27h4a00acb_0
 app_descriptor_generator=1.0.3=py27h88351b7_0
 asn1crypto=0.22.0=py27_0
@@ -17,6 +18,7 @@ bcrypt=3.1.4=py27h8473b39_0
 beautifulsoup4=4.6.0=py27h3f86ba9_1
 bleach=2.0.0=py27_0
 bokeh=0.12.10=py27he46cc6b_0
+branca=0.3.0=py_0
 bzip2=1.0.6=3
 cairo=1.14.8=0
 certifi=2017.7.27.1=py27_0
@@ -46,6 +48,7 @@ enum34=1.1.6=py27_0
 expat=2.1.0=0
 filelock=2.0.13=py27h61a9c69_0
 fiona=1.7.11=py27_3
+folium=0.5.0=py_0
 fontconfig=2.12.1=2
 freetype=2.5.5=2
 functools32=3.2.3.2=py27_0
@@ -109,6 +112,7 @@ matplotlib=2.0.2=np113py27_0
 mccabe=0.6.1=py27h0e7c7be_1
 mistune=0.7.3=py27_0
 mkl=2018.0.1=h19d6760_4
+multi_key_dict=2.0.3=py27h863ab3d_0
 munch=2.2.0=py27_0
 nbconvert=5.3.1=py27he041f76_0
 nbformat=4.2.0=py27_0
@@ -160,6 +164,7 @@ pyshp=1.2.12=py27h4b1cd21_0
 pytest=2.9.2=py27_0
 python=2.7.12=1
 python-dateutil=2.2=py27_0
+python-jenkins=0.4.16=py27h20de68d_0
 pytz=2016.10=py27_0
 pyyaml=3.11=py27_4
 pyzmq=16.0.2=py27_0
@@ -294,7 +299,7 @@ shapely=1.5.16=py27_0
 simplegeneric=0.8.1=py27_1
 singledispatch=3.4.0.3=py27_0
 sip=4.18=py27_0
-six=1.10.0=py27_0
+six=1.11.0=py27_1
 snappy=5.0=py27_0
 snowballstemmer=1.2.1=py27h44e2768_0
 sphinx=1.6.3=py27hf9b1778_0
@@ -310,10 +315,12 @@ subprocess32=3.2.7=py27_0
 terminado=0.6=py27_0
 testpath=0.3.1=py27_0
 tk=8.5.18=0
+toolz=0.9.0=py27_0
 tornado=4.4.2=py27_0
 traitlets=4.3.1=py27_0
 typing=3.6.2=py27h66f49e2_0
 udunits2=2.2.25=hd30922c_1
+vincent=0.4.4=py27_0
 wcwidth=0.1.7=py27_0
 webencodings=0.5=py27_0
 wheel=0.29.0=py27_0
