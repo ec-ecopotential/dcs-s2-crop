@@ -166,6 +166,15 @@
           <gmd:keyword>
             <gco:CharacterString>Orthoimagery</gco:CharacterString>
           </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Protected sites</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Bio-geographical regions</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Habitats and biotopes</gco:CharacterString>
+          </gmd:keyword>    
           <gmd:thesaurusName>
             <gmd:CI_Citation>
               <gmd:title>
