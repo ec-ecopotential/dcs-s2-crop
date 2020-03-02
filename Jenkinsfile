@@ -5,7 +5,7 @@ pipeline {
   }
 
   environment {
-        PATH="/opt/anaconda/bin:/opt/anaconda/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/home/msagona/bin"
+        PATH="/opt/anaconda/bin:$PATH"
   }
 
   agent {
